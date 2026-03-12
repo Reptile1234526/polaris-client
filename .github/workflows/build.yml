@@ -1,0 +1,33 @@
+name: Build Polaris Client
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone vendor dependencies
+        run: |
+          git clone https://github.com/ocornut/imgui vendor/imgui
+          git clone https://github.com/TsudaKageyu/minhook vendor/minhook
+
+      - name: Configure CMake
+        run: cmake -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PolarisClient
+          path: |
+            build/Release/PolarisClient.dll
+            build/Release/PolarisInjector.exe
