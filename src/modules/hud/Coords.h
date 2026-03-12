@@ -36,11 +36,11 @@ public:
 
         char buf[128];
         snprintf(buf, sizeof(buf), "X: %.1f  Y: %.1f  Z: %.1f", pos.x, pos.y, pos.z);
-        dl->AddText(ImGui::GetDefaultFont(), sz, { posX, posY }, col, buf);
+        dl->AddText(ImGui::GetIO().Fonts->Fonts[0], sz, { posX, posY }, col, buf);
 
         if (showFacing) {
             snprintf(buf, sizeof(buf), "Facing: %s", facing);
-            dl->AddText(ImGui::GetDefaultFont(), sz, { posX, posY + sz + 2 }, col, buf);
+            dl->AddText(ImGui::GetIO().Fonts->Fonts[0], sz, { posX, posY + sz + 2 }, col, buf);
         }
     }
 

@@ -26,7 +26,7 @@ public:
         snprintf(buf,  sizeof(buf),  fmt, dist);
 
         ImGui::GetForegroundDrawList()->AddText(
-            ImGui::GetDefaultFont(), 13.f, { posX, posY },
+            ImGui::GetIO().Fonts->Fonts[0], 13.f, { posX, posY },
             ImGui::ColorConvertFloat4ToU32(color), buf);
     }
 

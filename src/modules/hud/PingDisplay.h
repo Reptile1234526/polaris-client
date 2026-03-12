@@ -33,7 +33,7 @@ public:
         char buf[32];
         snprintf(buf, sizeof(buf), "Ping: %d ms", ping);
         ImGui::GetForegroundDrawList()->AddText(
-            ImGui::GetDefaultFont(), 13.f, { posX, posY }, col, buf);
+            ImGui::GetIO().Fonts->Fonts[0], 13.f, { posX, posY }, col, buf);
     }
 
     void onGUI() override {

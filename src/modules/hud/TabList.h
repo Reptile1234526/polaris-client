@@ -44,7 +44,7 @@ public:
                           IM_COL32(255, 255, 255, 60), 6.f);
 
         // Header
-        dl->AddText(ImGui::GetDefaultFont(), 13.f, { panelX + 8, panelY + 6 },
+        dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 13.f, { panelX + 8, panelY + 6 },
                     IM_COL32(255, 255, 255, 200), "Players");
 
         int count = 0;
@@ -61,7 +61,7 @@ public:
             dl->AddRectFilled({ panelX + 6, ry + 3 }, { panelX + 20, ry + 17 },
                               IM_COL32(100, 80, 60, 200));
 
-            dl->AddText(ImGui::GetDefaultFont(), 13.f, { panelX + 26, ry + 4 },
+            dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 13.f, { panelX + 26, ry + 4 },
                         IM_COL32(255, 255, 255, 220), name.c_str());
 
             if (showPing) {
@@ -74,7 +74,7 @@ public:
                 char pingBuf[16];
                 snprintf(pingBuf, sizeof(pingBuf), "%d ms", ping);
                 auto tsz = ImGui::CalcTextSize(pingBuf);
-                dl->AddText(ImGui::GetDefaultFont(), 13.f,
+                dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 13.f,
                             { panelX + panelW - tsz.x - 8, ry + 4 }, pingCol, pingBuf);
             }
             count++;

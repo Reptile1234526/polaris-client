@@ -34,13 +34,13 @@ public:
                 // col = lerp(green, red, ratio);
             }
 
-            dl->AddText(ImGui::GetDefaultFont(), iconSize * 0.8f,
+            dl->AddText(ImGui::GetIO().Fonts->Fonts[0], iconSize * 0.8f,
                         { x, y + i * spacing }, col, armorNames[i]);
 
             if (showDurability) {
                 char buf[16];
                 snprintf(buf, sizeof(buf), "---"); // TODO: real value
-                dl->AddText(ImGui::GetDefaultFont(), 11.f,
+                dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 11.f,
                             { x + iconSize, y + i * spacing + 4.f },
                             IM_COL32(200, 200, 200, 200), buf);
             }

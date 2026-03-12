@@ -34,7 +34,7 @@ public:
         char buf[32];
         snprintf(buf, sizeof(buf), "%d combo", combo);
         ImU32 col = ImGui::ColorConvertFloat4ToU32(color);
-        dl->AddText(ImGui::GetDefaultFont(), 16.f, { posX, posY }, col, buf);
+        dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 16.f, { posX, posY }, col, buf);
     }
 
     void onGUI() override {

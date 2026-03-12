@@ -32,7 +32,7 @@ public:
         char buf[64];
         snprintf(buf, sizeof(buf), "CPS: %d L | %d R",
                  (int)lClicks.size(), (int)rClicks.size());
-        dl->AddText(ImGui::GetDefaultFont(), 13.f, { posX, posY }, col, buf);
+        dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 13.f, { posX, posY }, col, buf);
     }
 
     bool onKey(int vk, bool down) override {

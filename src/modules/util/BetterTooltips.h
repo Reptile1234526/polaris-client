@@ -47,11 +47,11 @@ public:
         dl->AddRect(      { bx, by }, { bx + bw, by + bh }, IM_COL32(120, 80, 200, 200), 4.f);
 
         int idx = 0;
-        if (showItemId)     dl->AddText(ImGui::GetDefaultFont(), 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(220,220,220,255), lines[0]);
-        if (showStack)      dl->AddText(ImGui::GetDefaultFont(), 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(180,180,180,255), lines[1]);
-        if (showDurability) dl->AddText(ImGui::GetDefaultFont(), 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(100,200,100,255), lines[2]);
-        if (showFood)       dl->AddText(ImGui::GetDefaultFont(), 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(220,160,60, 255), lines[3]);
-        if (showEnchants)   dl->AddText(ImGui::GetDefaultFont(), 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(160,100,255,255), lines[4]);
+        if (showItemId)     dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(220,220,220,255), lines[0]);
+        if (showStack)      dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(180,180,180,255), lines[1]);
+        if (showDurability) dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(100,200,100,255), lines[2]);
+        if (showFood)       dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(220,160,60, 255), lines[3]);
+        if (showEnchants)   dl->AddText(ImGui::GetIO().Fonts->Fonts[0], 12.f, {bx+pad, by+pad+idx++*lineH}, IM_COL32(160,100,255,255), lines[4]);
     }
 
     void onGUI() override {
