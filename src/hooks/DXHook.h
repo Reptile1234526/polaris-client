@@ -56,5 +56,5 @@ private:
     static void  cleanupRenderTargets();
     static void  createRenderTargets(IDXGISwapChain3* chain);
     static void* getVTableEntry(void* obj, int index);
-    static bool  getDummySwapChainVTable(void** vtable);
+    static bool  getDummySwapChainVTable(void** scVtable, void** cqVtable);
 };

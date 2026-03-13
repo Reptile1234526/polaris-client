@@ -36,19 +36,16 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM,
 bool DXHook::init() {
     MH_Initialize();
 
-    void* vt[20] = {};
-    if (!getDummySwapChainVTable(vt)) return false;
+    void* scVT[20] = {};
+    void* cqVT[20] = {};
+    if (!getDummySwapChainVTable(scVT, cqVT)) return false;
 
-    // IDXGISwapChain::Present       = vtable index 8
-    // IDXGISwapChain::ResizeBuffers = vtable index 13
-    MH_CreateHook(vt[8],  (void*)hookedPresent,       (void**)&originalPresent);
-    MH_CreateHook(vt[13], (void*)hookedResizeBuffers,  (void**)&originalResizeBuffers);
-
-    // We need cmdQueue for ImGui DX12. Capture it by hooking
-    // ID3D12CommandQueue::ExecuteCommandLists (vtable index 10 on queue object).
-    // The dummy device lets us grab that vtable too.
-    // (Simplified: many clients just scan for a command queue in the game's memory;
-    //  here we show the hook approach.)
+    // IDXGISwapChain::Present            = vtable index 8
+    // IDXGISwapChain::ResizeBuffers      = vtable index 13
+    // ID3D12CommandQueue::ExecuteCmdLists = vtable index 10
+    MH_CreateHook(scVT[8],  (void*)hookedPresent,          (void**)&originalPresent);
+    MH_CreateHook(scVT[13], (void*)hookedResizeBuffers,     (void**)&originalResizeBuffers);
+    MH_CreateHook(cqVT[10], (void*)hookedExecuteCmdLists,  (void**)&originalExecuteCmdLists);
 
     MH_EnableHook(MH_ALL_HOOKS);
     return true;
@@ -69,7 +66,7 @@ void DXHook::shutdown() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Create a throw-away D3D12 device + swap chain to read vtable pointers
 // ─────────────────────────────────────────────────────────────────────────────
-bool DXHook::getDummySwapChainVTable(void** vtable) {
+bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
     HWND dummy = CreateWindowExA(0, "STATIC", "Polaris", WS_OVERLAPPED,
                                   0, 0, 100, 100, nullptr, nullptr,
                                   GetModuleHandleA(nullptr), nullptr);
@@ -97,15 +94,18 @@ bool DXHook::getDummySwapChainVTable(void** vtable) {
     factory->CreateSwapChain(dqueue, &sd, &dchain);
 
     if (dchain) {
-        memcpy(vtable, *(void***)dchain, 20 * sizeof(void*));
+        memcpy(scVtable, *(void***)dchain, 20 * sizeof(void*));
         dchain->Release();
+    }
+    if (dqueue) {
+        memcpy(cqVtable, *(void***)dqueue, 20 * sizeof(void*));
+        dqueue->Release();
     }
 
     if (factory) factory->Release();
-    if (dqueue)  dqueue->Release();
     if (ddev)    ddev->Release();
     DestroyWindow(dummy);
-    return dchain != nullptr;
+    return dchain != nullptr && dqueue != nullptr;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,6 +173,15 @@ done:
     if (vsync) sync = vsync->overrideSyncInterval(sync);
 
     return originalPresent(chain, sync, flags);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hooked ExecuteCommandLists — captures the real command queue pointer
+// ─────────────────────────────────────────────────────────────────────────────
+void __stdcall DXHook::hookedExecuteCmdLists(ID3D12CommandQueue* queue, UINT count,
+                                              ID3D12CommandList* const* lists) {
+    if (!cmdQueue) cmdQueue = queue;
+    originalExecuteCmdLists(queue, count, lists);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
