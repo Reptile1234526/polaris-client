@@ -8,6 +8,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(IMGUI_DIR  ${CMAKE_SOURCE_DIR}/vendor/imgui)
 set(MINHOOK_DIR ${CMAKE_SOURCE_DIR}/vendor/minhook)
 
+# ── MinHook (build from source) ───────────────────────────────────────────────
+file(GLOB MINHOOK_SOURCES
+    ${MINHOOK_DIR}/src/buffer.c
+    ${MINHOOK_DIR}/src/hook.c
+    ${MINHOOK_DIR}/src/trampoline.c
+    ${MINHOOK_DIR}/src/hde/hde64.c
+)
+add_library(minhook STATIC ${MINHOOK_SOURCES})
+target_include_directories(minhook PUBLIC ${MINHOOK_DIR}/include)
+
 # ── ImGui sources ─────────────────────────────────────────────────────────────
 set(IMGUI_SOURCES
     ${IMGUI_DIR}/imgui.cpp
@@ -38,7 +48,7 @@ target_link_libraries(PolarisClient PRIVATE
     dxgi.lib
     d3dcompiler.lib
     dwmapi.lib
-    ${MINHOOK_DIR}/lib/libMinHook.x64.lib
+    minhook
 )
 
 target_compile_definitions(PolarisClient PRIVATE
