@@ -281,48 +281,61 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     DXLOG(std::string("bufferCount=") + std::to_string(bufferCount));
     if (bufferCount == 0 || bufferCount > 8) { DXLOG("Bad bufferCount"); return false; }
 
-    // Create SRV descriptor heap (for ImGui font)
+    // Guard: if called multiple times before success, clean up first
+    cleanupRenderTargets();
+    if (srvHeap)  { srvHeap->Release();  srvHeap  = nullptr; }
+    if (rtvHeap)  { rtvHeap->Release();  rtvHeap  = nullptr; }
+    if (cmdList)  { cmdList->Release();  cmdList  = nullptr; }
+    for (auto* a : cmdAllocs) if (a) a->Release();
+    cmdAllocs.clear();
+    if (fence)       { fence->Release();       fence      = nullptr; }
+    if (fenceEvent)  { CloseHandle(fenceEvent); fenceEvent = nullptr; }
+
+    DXLOG("Creating SRV heap...");
     D3D12_DESCRIPTOR_HEAP_DESC srvDesc = {};
     srvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvDesc.NumDescriptors = 1;
     srvDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    device->CreateDescriptorHeap(&srvDesc, IID_PPV_ARGS(&srvHeap));
+    if (FAILED(device->CreateDescriptorHeap(&srvDesc, IID_PPV_ARGS(&srvHeap))) || !srvHeap)
+        { DXLOG("SRV heap FAILED"); return false; }
 
-    // Create RTV descriptor heap
+    DXLOG("Creating RTV heap...");
     D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
     rtvDesc.Type           = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     rtvDesc.NumDescriptors = bufferCount;
     rtvDesc.Flags          = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtvHeap));
+    if (FAILED(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtvHeap))) || !rtvHeap)
+        { DXLOG("RTV heap FAILED"); return false; }
     rtvDescSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-    // Create per-frame command allocators + one command list
+    DXLOG("Creating command allocators...");
     cmdAllocs.resize(bufferCount);
     for (UINT i = 0; i < bufferCount; i++)
-        device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
-                                       IID_PPV_ARGS(&cmdAllocs[i]));
-    if (!cmdAllocs[0]) return false;
+        device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocs[i]));
+    if (!cmdAllocs[0]) { DXLOG("cmdAlloc FAILED"); return false; }
+
+    DXLOG("Creating command list...");
     device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
                               cmdAllocs[0], nullptr, IID_PPV_ARGS(&cmdList));
-    if (!cmdList) return false;
+    if (!cmdList) { DXLOG("cmdList FAILED"); return false; }
     cmdList->Close();
 
-    // Create fence for per-frame GPU synchronisation
+    DXLOG("Creating fence...");
     fenceValues.assign(bufferCount, 0);
     fenceCounter = 0;
     device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
     fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (!fence || !fenceEvent) return false;
+    if (!fence || !fenceEvent) { DXLOG("fence FAILED"); return false; }
 
+    DXLOG("Creating render targets...");
     createRenderTargets(chain);
 
-    // ImGui setup
+    DXLOG("Init ImGui context...");
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr; // don't save imgui.ini to disk
+    io.IniFilename = nullptr;
 
     ImGui::StyleColorsDark();
-    // Custom Polaris style
     ImGuiStyle& s = ImGui::GetStyle();
     s.WindowRounding = 6.f;
     s.FrameRounding  = 4.f;
@@ -332,16 +345,19 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     s.Colors[ImGuiCol_Button]         = { 0.25f, 0.12f, 0.5f,  0.9f  };
     s.Colors[ImGuiCol_ButtonHovered]  = { 0.35f, 0.18f, 0.7f,  1.f   };
 
+    DXLOG("ImGui_ImplWin32_Init...");
     ImGui_ImplWin32_Init(gameWindow);
+    DXLOG("ImGui_ImplDX12_Init...");
     ImGui_ImplDX12_Init(device, (int)bufferCount,
                         DXGI_FORMAT_R8G8B8A8_UNORM, srvHeap,
                         srvHeap->GetCPUDescriptorHandleForHeapStart(),
                         srvHeap->GetGPUDescriptorHandleForHeapStart());
 
-    // Hook WndProc for keyboard/mouse input
+    DXLOG("Hooking WndProc...");
     originalWndProc = (WNDPROC)SetWindowLongPtrW(gameWindow, GWLP_WNDPROC,
                                                   (LONG_PTR)hookedWndProc);
     imguiReady = true;
+    DXLOG("initImGui COMPLETE");
     return true;
 }
 
