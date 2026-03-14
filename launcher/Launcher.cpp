@@ -8,6 +8,7 @@
 #pragma comment(lib, "uxtheme.lib")
 
 #include <Windows.h>
+#include <objidl.h>   // Required for IStream when WIN32_LEAN_AND_MEAN is set
 #include <gdiplus.h>
 #include <dwmapi.h>
 #include <TlHelp32.h>
