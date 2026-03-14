@@ -112,31 +112,26 @@ static void SetStatus(const std::wstring& msg, Color col) {
 static void DoLaunch() {
     if (g_busy.exchange(true)) return;
 
-    SetStatus(L"Checking for Minecraft...", kSub);
-
     DWORD pid = FindPID(L"Minecraft.Windows.exe");
 
     if (!pid) {
-        SetStatus(L"Launching Minecraft...", kSub);
-        ShellExecuteW(nullptr, L"open",
-            L"shell:AppsFolder\\Microsoft.MinecraftUWP_8wekyb3d8bbwe!App",
-            nullptr, nullptr, SW_SHOWNORMAL);
+        // Tell the user to open Minecraft, then wait for it
+        SetStatus(L"Open Minecraft from the Start Menu, then wait...", kSub);
 
-        // Wait up to 30 s
-        for (int i = 0; i < 300 && !pid; i++) {
+        for (int i = 0; i < 600 && !pid; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             pid = FindPID(L"Minecraft.Windows.exe");
         }
 
         if (!pid) {
-            SetStatus(L"Minecraft didn't start — launch it manually", kRed);
+            SetStatus(L"Timed out - open Minecraft and try again", kRed);
             g_busy = false;
             return;
         }
 
         // Give the game a moment to initialise
-        SetStatus(L"Waiting for game to load...", kSub);
-        std::this_thread::sleep_for(std::chrono::milliseconds(4000));
+        SetStatus(L"Minecraft found! Waiting for it to load...", kSub);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     }
 
     SetStatus(L"Injecting PolarisClient.dll...", kSub);
@@ -357,14 +352,14 @@ static void Paint(HDC hdc) {
             SolidBrush btnBr(bc);
             DrawRoundRect(g, btnBr, bx, by, 280.f, 52.f, 8.f);
 
-            const wchar_t* label = g_busy ? L"Working..." : L"Launch Minecraft + Inject";
+            const wchar_t* label = g_busy ? L"Working..." : L"Inject into Minecraft";
             DrawText2(g, label, g_fontUI, 14.f, FontStyleBold, kText,
                       bx, by, 280.f, 52.f,
                       StringAlignmentCenter, StringAlignmentCenter);
         }
 
         // Hint below button
-        DrawText2(g, L"Will auto-launch Minecraft if it isn't running",
+        DrawText2(g, L"Open Minecraft first, then click the button",
                   g_fontUI, 10.f, FontStyleRegular, kSub,
                   CX, CY + 330.f, CW, 20.f,
                   StringAlignmentCenter, StringAlignmentCenter);
