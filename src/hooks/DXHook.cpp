@@ -77,11 +77,18 @@ bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
     IDXGIFactory4*      factory= nullptr;
     IDXGISwapChain*     dchain = nullptr;
 
-    D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&ddev));
+    if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&ddev))) || !ddev) {
+        DestroyWindow(dummy); return false;
+    }
 
     D3D12_COMMAND_QUEUE_DESC qd = {};
-    ddev->CreateCommandQueue(&qd, IID_PPV_ARGS(&dqueue));
-    CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+    if (FAILED(ddev->CreateCommandQueue(&qd, IID_PPV_ARGS(&dqueue))) || !dqueue) {
+        ddev->Release(); DestroyWindow(dummy); return false;
+    }
+
+    if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))) || !factory) {
+        dqueue->Release(); ddev->Release(); DestroyWindow(dummy); return false;
+    }
 
     DXGI_SWAP_CHAIN_DESC sd = {};
     sd.BufferCount              = 2;
@@ -93,19 +100,18 @@ bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
     sd.Windowed                 = TRUE;
     factory->CreateSwapChain(dqueue, &sd, &dchain);
 
-    if (dchain) {
+    bool ok = (dchain != nullptr);
+    if (ok) {
         memcpy(scVtable, *(void***)dchain, 20 * sizeof(void*));
+        memcpy(cqVtable, *(void***)dqueue, 20 * sizeof(void*));
         dchain->Release();
     }
-    if (dqueue) {
-        memcpy(cqVtable, *(void***)dqueue, 20 * sizeof(void*));
-        dqueue->Release();
-    }
 
-    if (factory) factory->Release();
-    if (ddev)    ddev->Release();
+    dqueue->Release();
+    factory->Release();
+    ddev->Release();
     DestroyWindow(dummy);
-    return dchain != nullptr && dqueue != nullptr;
+    return ok;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,6 +127,8 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chain, UINT sync, UINT 
     if (imguiReady) {
         // Determine which back buffer is current
         UINT bbIdx = chain->GetCurrentBackBufferIndex();
+        if (bbIdx >= bufferCount || bbIdx >= cmdAllocs.size() || bbIdx >= renderTargets.size())
+            goto done;
 
         // Reset command allocator + list for this frame
         cmdAllocs[bbIdx]->Reset();
