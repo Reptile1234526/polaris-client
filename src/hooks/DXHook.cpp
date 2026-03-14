@@ -154,31 +154,36 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chainRaw, UINT sync, UI
     chainRaw->QueryInterface(IID_PPV_ARGS(&chain));
     if (!chain) return originalPresent(chainRaw, sync, flags);
 
+    static bool s_initFailed = false;  // don't retry after a hard failure
     HRESULT result = E_FAIL;
     __try {
 
-    if (!imguiReady && cmdQueue) {
+    if (!imguiReady && !s_initFailed && cmdQueue) {
         if (!initImGui(chain)) {
+            s_initFailed = true;
+            DXLOG("initImGui returned false — will not retry");
             goto done;
         }
     }
 
     if (imguiReady) {
-        // Determine which back buffer is current
         UINT bbIdx = chain->GetCurrentBackBufferIndex();
         if (bbIdx >= bufferCount || bbIdx >= cmdAllocs.size() || bbIdx >= renderTargets.size())
             goto done;
+        if (!renderTargets[bbIdx]) goto done;
 
-        // Wait for GPU to finish with this frame's resources before resetting
+        DXLOG(std::string("Render frame bbIdx=") + std::to_string(bbIdx));
+
         if (fence && fenceEvent && fenceValues[bbIdx] &&
             fence->GetCompletedValue() < fenceValues[bbIdx]) {
             fence->SetEventOnCompletion(fenceValues[bbIdx], fenceEvent);
             WaitForSingleObject(fenceEvent, INFINITE);
         }
+        DXLOG("fence wait done");
 
-        // Reset command allocator + list for this frame
         cmdAllocs[bbIdx]->Reset();
         cmdList->Reset(cmdAllocs[bbIdx], nullptr);
+        DXLOG("cmd reset done");
 
         // Transition render target to RENDER_TARGET state
         D3D12_RESOURCE_BARRIER barrier = {};
@@ -233,9 +238,9 @@ done:
     result = originalPresent(chainRaw, sync, flags);
 
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        // If our overlay code crashed, still call the original Present
-        // so the game keeps running instead of dying
-        imguiReady = false;
+        DXLOG("EXCEPTION in hookedPresent — disabling overlay");
+        s_initFailed = true;
+        imguiReady   = false;
         result = originalPresent(chainRaw, sync, flags);
     }
 
