@@ -26,6 +26,10 @@ HWND                        DXHook::gameWindow              = nullptr;
 WNDPROC                     DXHook::originalWndProc         = nullptr;
 std::vector<ID3D12CommandAllocator*> DXHook::cmdAllocs;
 std::vector<ID3D12Resource*>         DXHook::renderTargets;
+ID3D12Fence*                         DXHook::fence        = nullptr;
+HANDLE                               DXHook::fenceEvent   = nullptr;
+std::vector<UINT64>                  DXHook::fenceValues;
+UINT64                               DXHook::fenceCounter = 0;
 
 // ── ImGui WndProc forward-declaration ────────────────────────────────────────
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
@@ -54,7 +58,19 @@ bool DXHook::init() {
 void DXHook::shutdown() {
     MH_DisableHook(MH_ALL_HOOKS);
     MH_Uninitialize();
+    // Wait for GPU to finish before tearing down
+    if (fence && fenceEvent && cmdQueue) {
+        UINT64 val = ++fenceCounter;
+        cmdQueue->Signal(fence, val);
+        if (fence->GetCompletedValue() < val) {
+            fence->SetEventOnCompletion(val, fenceEvent);
+            WaitForSingleObject(fenceEvent, 2000);
+        }
+    }
     cleanupRenderTargets();
+    if (fence)      { fence->Release();      fence      = nullptr; }
+    if (fenceEvent) { CloseHandle(fenceEvent); fenceEvent = nullptr; }
+    fenceValues.clear();
     if (imguiReady) {
         ImGui_ImplDX12_Shutdown();
         ImGui_ImplWin32_Shutdown();
@@ -130,6 +146,13 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chain, UINT sync, UINT 
         if (bbIdx >= bufferCount || bbIdx >= cmdAllocs.size() || bbIdx >= renderTargets.size())
             goto done;
 
+        // Wait for GPU to finish with this frame's resources before resetting
+        if (fence && fenceEvent && fenceValues[bbIdx] &&
+            fence->GetCompletedValue() < fenceValues[bbIdx]) {
+            fence->SetEventOnCompletion(fenceValues[bbIdx], fenceEvent);
+            WaitForSingleObject(fenceEvent, INFINITE);
+        }
+
         // Reset command allocator + list for this frame
         cmdAllocs[bbIdx]->Reset();
         cmdList->Reset(cmdAllocs[bbIdx], nullptr);
@@ -173,6 +196,10 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chain, UINT sync, UINT 
 
         ID3D12CommandList* lists[] = { cmdList };
         cmdQueue->ExecuteCommandLists(1, lists);
+
+        // Signal fence so we know when this frame is done on the GPU
+        fenceValues[bbIdx] = ++fenceCounter;
+        cmdQueue->Signal(fence, fenceValues[bbIdx]);
     }
 
 done:
@@ -241,9 +268,18 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     for (UINT i = 0; i < bufferCount; i++)
         device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                        IID_PPV_ARGS(&cmdAllocs[i]));
+    if (!cmdAllocs[0]) return false;
     device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
                               cmdAllocs[0], nullptr, IID_PPV_ARGS(&cmdList));
+    if (!cmdList) return false;
     cmdList->Close();
+
+    // Create fence for per-frame GPU synchronisation
+    fenceValues.assign(bufferCount, 0);
+    fenceCounter = 0;
+    device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+    fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!fence || !fenceEvent) return false;
 
     createRenderTargets(chain);
 

@@ -47,6 +47,12 @@ private:
     static UINT                              rtvDescSize;
     static HWND                              gameWindow;
 
+    // ── Per-frame GPU sync fences ─────────────────────────────────────────────
+    static ID3D12Fence*          fence;
+    static HANDLE                fenceEvent;
+    static std::vector<UINT64>   fenceValues;
+    static UINT64                fenceCounter;
+
     // ── WndProc hook for keyboard / mouse input ──────────────────────────────
     static WNDPROC   originalWndProc;
     static LRESULT CALLBACK hookedWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
