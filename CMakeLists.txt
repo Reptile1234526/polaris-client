@@ -62,6 +62,27 @@ set_target_properties(PolarisClient PROPERTIES
     SUFFIX ".dll"
 )
 
-# ── Injector ──────────────────────────────────────────────────────────────────
+# ── Injector (console, kept for debugging) ────────────────────────────────────
 add_executable(PolarisInjector injector/main.cpp)
 target_compile_definitions(PolarisInjector PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+
+# ── Launcher (GUI) ────────────────────────────────────────────────────────────
+add_executable(PolarisLauncher WIN32 launcher/Launcher.cpp)
+target_compile_definitions(PolarisLauncher PRIVATE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+    _CRT_SECURE_NO_WARNINGS
+    UNICODE
+    _UNICODE
+)
+target_link_libraries(PolarisLauncher PRIVATE
+    gdiplus.lib
+    gdi32.lib
+    shell32.lib
+    dwmapi.lib
+    shlwapi.lib
+    user32.lib
+)
+set_target_properties(PolarisLauncher PROPERTIES
+    OUTPUT_NAME "PolarisLauncher"
+)

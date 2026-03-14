@@ -31,3 +31,4 @@ jobs:
           path: |
             build/Release/PolarisClient.dll
             build/Release/PolarisInjector.exe
+            build/Release/PolarisLauncher.exe
