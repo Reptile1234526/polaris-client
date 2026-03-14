@@ -16,8 +16,25 @@ public:
     // Called by ModuleManager when a scroll-wheel event is detected in WndProc
     static void onScrollWheel(int delta);
 
+    // ── ImGui / DX12 state (public so DoRenderFrame helper can access) ────────
+    static bool                              imguiReady;
+    static ID3D12Device*                     device;
+    static ID3D12CommandQueue*               cmdQueue;
+    static ID3D12DescriptorHeap*             rtvHeap;
+    static ID3D12DescriptorHeap*             srvHeap;
+    static ID3D12GraphicsCommandList*        cmdList;
+    static std::vector<ID3D12CommandAllocator*> cmdAllocs;
+    static std::vector<ID3D12Resource*>      renderTargets;
+    static UINT                              bufferCount;
+    static UINT                              rtvDescSize;
+    static HWND                              gameWindow;
+    static ID3D12Fence*                      fence;
+    static HANDLE                            fenceEvent;
+    static std::vector<UINT64>               fenceValues;
+    static UINT64                            fenceCounter;
+    static bool  initImGui(IDXGISwapChain3* chain);
+
 private:
-    // ── Hooked functions ─────────────────────────────────────────────────────
     using PresentFn            = HRESULT(__stdcall*)(IDXGISwapChain3*, UINT, UINT);
     using ExecuteCmdListsFn    = void(__stdcall*)(ID3D12CommandQueue*, UINT,
                                                   ID3D12CommandList* const*);
@@ -34,31 +51,9 @@ private:
     static HRESULT __stdcall hookedResizeBuffers(IDXGISwapChain* chain, UINT count,
                                                  UINT w, UINT h, DXGI_FORMAT fmt, UINT flags);
 
-    // ── ImGui / DX12 state ───────────────────────────────────────────────────
-    static bool                              imguiReady;
-    static ID3D12Device*                     device;
-    static ID3D12CommandQueue*               cmdQueue;      // captured from game
-    static ID3D12DescriptorHeap*             rtvHeap;
-    static ID3D12DescriptorHeap*             srvHeap;
-    static ID3D12GraphicsCommandList*        cmdList;
-    static std::vector<ID3D12CommandAllocator*> cmdAllocs;
-    static std::vector<ID3D12Resource*>      renderTargets;
-    static UINT                              bufferCount;
-    static UINT                              rtvDescSize;
-    static HWND                              gameWindow;
-
-    // ── Per-frame GPU sync fences ─────────────────────────────────────────────
-    static ID3D12Fence*          fence;
-    static HANDLE                fenceEvent;
-    static std::vector<UINT64>   fenceValues;
-    static UINT64                fenceCounter;
-
-    // ── WndProc hook for keyboard / mouse input ──────────────────────────────
     static WNDPROC   originalWndProc;
     static LRESULT CALLBACK hookedWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    static bool  initImGui(IDXGISwapChain3* chain);
     static void  cleanupRenderTargets();
     static void  createRenderTargets(IDXGISwapChain3* chain);
     static void* getVTableEntry(void* obj, int index);

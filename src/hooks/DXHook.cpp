@@ -17,13 +17,11 @@ static std::ofstream& GetLog() {
         log.open("C:\\Users\\Public\\polaris.log", std::ios::app);
     return log;
 }
-#undef DXLOG
 #define DXLOG(msg) do { \
-    std::string _s = std::string("[Polaris] ") + msg + "\n"; \
-    OutputDebugStringA(_s.c_str()); \
-    GetLog() << msg << std::endl; GetLog().flush(); \
+    std::string _dxlog_s = std::string("[Polaris] ") + (msg) + "\n"; \
+    OutputDebugStringA(_dxlog_s.c_str()); \
+    GetLog() << (msg) << std::endl; GetLog().flush(); \
 } while(0)
-#define DXLOG(msg) do { GetLog() << msg << std::endl; GetLog().flush(); } while(0)
 
 // ── Static member definitions ─────────────────────────────────────────────────
 DXHook::PresentFn           DXHook::originalPresent         = nullptr;
@@ -147,98 +145,93 @@ bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hooked Present — main render loop entry
+// ── Render logic extracted so __try can be in a function with no C++ objects ──
+static bool s_initFailed = false;
+
+static void DoRenderFrame(IDXGISwapChain3* chain) {
+    if (!DXHook::imguiReady && !s_initFailed && DXHook::cmdQueue) {
+        if (!DXHook::initImGui(chain)) {
+            s_initFailed = true;
+            DXLOG("initImGui returned false — will not retry");
+            return;
+        }
+    }
+    if (!DXHook::imguiReady) return;
+
+    UINT bbIdx = chain->GetCurrentBackBufferIndex();
+    if (bbIdx >= DXHook::bufferCount ||
+        bbIdx >= DXHook::cmdAllocs.size() ||
+        bbIdx >= DXHook::renderTargets.size() ||
+        !DXHook::renderTargets[bbIdx]) return;
+
+    DXLOG(std::string("Render frame bbIdx=") + std::to_string(bbIdx));
+
+    if (DXHook::fence && DXHook::fenceEvent && DXHook::fenceValues[bbIdx] &&
+        DXHook::fence->GetCompletedValue() < DXHook::fenceValues[bbIdx]) {
+        DXHook::fence->SetEventOnCompletion(DXHook::fenceValues[bbIdx], DXHook::fenceEvent);
+        WaitForSingleObject(DXHook::fenceEvent, INFINITE);
+    }
+    DXLOG("fence wait done");
+
+    DXHook::cmdAllocs[bbIdx]->Reset();
+    DXHook::cmdList->Reset(DXHook::cmdAllocs[bbIdx], nullptr);
+    DXLOG("cmd reset done");
+
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource   = DXHook::renderTargets[bbIdx];
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    DXHook::cmdList->ResourceBarrier(1, &barrier);
+    DXLOG("barrier PRESENT->RT done");
+
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = DXHook::rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    rtv.ptr += (UINT64)bbIdx * DXHook::rtvDescSize;
+    DXHook::cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+    DXHook::cmdList->SetDescriptorHeaps(1, &DXHook::srvHeap);
+    DXLOG("RT set");
+
+    ImGui_ImplDX12_NewFrame();
+    ImGui_ImplWin32_NewFrame();
+    ImGui::NewFrame();
+    DXLOG("ImGui new frame");
+
+    ClickGUI::get().render();
+    RECT rc; GetClientRect(DXHook::gameWindow, &rc);
+    ModuleManager::get().onRender(rc.right, rc.bottom);
+
+    ImGui::Render();
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), DXHook::cmdList);
+    DXLOG("ImGui render done");
+
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
+    DXHook::cmdList->ResourceBarrier(1, &barrier);
+    DXHook::cmdList->Close();
+
+    ID3D12CommandList* lists[] = { DXHook::cmdList };
+    DXHook::cmdQueue->ExecuteCommandLists(1, lists);
+    DXHook::fenceValues[bbIdx] = ++DXHook::fenceCounter;
+    DXHook::cmdQueue->Signal(DXHook::fence, DXHook::fenceValues[bbIdx]);
+    DXLOG("frame submitted");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chainRaw, UINT sync, UINT flags) {
-    // QueryInterface for IDXGISwapChain3 so GetCurrentBackBufferIndex is safe
     IDXGISwapChain3* chain = nullptr;
     chainRaw->QueryInterface(IID_PPV_ARGS(&chain));
     if (!chain) return originalPresent(chainRaw, sync, flags);
 
-    static bool s_initFailed = false;  // don't retry after a hard failure
+    // __try must be in a function with no C++ object unwinding — use plain vars only
     HRESULT result = E_FAIL;
     __try {
-
-    if (!imguiReady && !s_initFailed && cmdQueue) {
-        if (!initImGui(chain)) {
-            s_initFailed = true;
-            DXLOG("initImGui returned false — will not retry");
-            goto done;
-        }
-    }
-
-    if (imguiReady) {
-        UINT bbIdx = chain->GetCurrentBackBufferIndex();
-        if (bbIdx >= bufferCount || bbIdx >= cmdAllocs.size() || bbIdx >= renderTargets.size())
-            goto done;
-        if (!renderTargets[bbIdx]) goto done;
-
-        DXLOG(std::string("Render frame bbIdx=") + std::to_string(bbIdx));
-
-        if (fence && fenceEvent && fenceValues[bbIdx] &&
-            fence->GetCompletedValue() < fenceValues[bbIdx]) {
-            fence->SetEventOnCompletion(fenceValues[bbIdx], fenceEvent);
-            WaitForSingleObject(fenceEvent, INFINITE);
-        }
-        DXLOG("fence wait done");
-
-        cmdAllocs[bbIdx]->Reset();
-        cmdList->Reset(cmdAllocs[bbIdx], nullptr);
-        DXLOG("cmd reset done");
-
-        // Transition render target to RENDER_TARGET state
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Transition.pResource   = renderTargets[bbIdx];
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        cmdList->ResourceBarrier(1, &barrier);
-
-        // Set render target
-        D3D12_CPU_DESCRIPTOR_HANDLE rtv = rtvHeap->GetCPUDescriptorHandleForHeapStart();
-        rtv.ptr += (UINT64)bbIdx * rtvDescSize;
-        cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
-        cmdList->SetDescriptorHeaps(1, &srvHeap);
-
-        // ── ImGui frame ──────────────────────────────────────────────────────
-        ImGui_ImplDX12_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-
-        // Draw clickGUI if open
-        ClickGUI::get().render();
-
-        // Render all enabled modules
-        RECT rc; GetClientRect(gameWindow, &rc);
-        int sw = rc.right, sh = rc.bottom;
-        ModuleManager::get().onRender(sw, sh);
-
-        ImGui::Render();
-        ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdList);
-
-        // Transition back to PRESENT
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
-        cmdList->ResourceBarrier(1, &barrier);
-        cmdList->Close();
-
-        ID3D12CommandList* lists[] = { cmdList };
-        cmdQueue->ExecuteCommandLists(1, lists);
-
-        // Signal fence so we know when this frame is done on the GPU
-        fenceValues[bbIdx] = ++fenceCounter;
-        cmdQueue->Signal(fence, fenceValues[bbIdx]);
-    }
-
-done:
-    // VSyncDisabler overrides the sync interval
-    auto* vsync = ModuleManager::get().get<VSyncDisabler>();
-    if (vsync) sync = vsync->overrideSyncInterval(sync);
-
-    result = originalPresent(chainRaw, sync, flags);
-
+        DoRenderFrame(chain);
+        auto* vsync = ModuleManager::get().get<VSyncDisabler>();
+        if (vsync) sync = vsync->overrideSyncInterval(sync);
+        result = originalPresent(chainRaw, sync, flags);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        DXLOG("EXCEPTION in hookedPresent — disabling overlay");
+        OutputDebugStringA("[Polaris] EXCEPTION in hookedPresent — disabling overlay\n");
         s_initFailed = true;
         imguiReady   = false;
         result = originalPresent(chainRaw, sync, flags);
