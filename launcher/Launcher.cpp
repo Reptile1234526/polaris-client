@@ -221,7 +221,7 @@ static void Paint(HDC hdc) {
     // Close button
     {
         Color closecol = g_hoverClose ? kRed : kSub;
-        DrawText2(g, L"✕", g_fontUI, 14.f, FontStyleBold, closecol,
+        DrawText2(g, L"X", g_fontUI, 14.f, FontStyleBold, closecol,
                   (float)(W - 36), 0, 30.f, (float)TITLE_H,
                   StringAlignmentCenter, StringAlignmentCenter);
     }
@@ -257,7 +257,7 @@ static void Paint(HDC hdc) {
 
     // Nav items
     const wchar_t* navLabels[] = { L"Home", L"Settings" };
-    const wchar_t* navIcons[]  = { L"⌂", L"⚙" };
+    const wchar_t* navIcons[]  = { L"H", L"S" };
     for (int i = 0; i < 2; i++) {
         float ny = 90.f + i * 50.f;
         bool  sel = g_nav == i;
@@ -326,11 +326,11 @@ static void Paint(HDC hdc) {
                       CX + 16.f, fy + 12.f, 200.f, 20.f);
 
             const wchar_t* feats[] = {
-                L"✓  HUD modules — CPS, Coords, Ping, Armor, Keystrokes",
-                L"✓  Visual — Fullbright, Hitbox, Block Outline, Zoom",
-                L"✓  Utility — Fast Inventory, Drop Inventory, VSync Disabler",
-                L"✓  Click GUI  (Right Shift in-game)",
-                L"✓  Per-module keybinds & settings",
+                L"*  HUD modules - CPS, Coords, Ping, Armor, Keystrokes",
+                L"*  Visual - Fullbright, Hitbox, Block Outline, Zoom",
+                L"*  Utility - Fast Inventory, Drop Inventory, VSync Disabler",
+                L"*  Click GUI  (Right Shift in-game)",
+                L"*  Per-module keybinds & settings",
             };
             for (int i = 0; i < 5; i++) {
                 DrawText2(g, feats[i], g_fontUI, 11.5f, FontStyleRegular, kText,
