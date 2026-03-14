@@ -14,9 +14,15 @@
 static std::ofstream& GetLog() {
     static std::ofstream log;
     if (!log.is_open())
-        log.open("C:\\polaris.log", std::ios::app);
+        log.open("C:\\Users\\Public\\polaris.log", std::ios::app);
     return log;
 }
+#undef DXLOG
+#define DXLOG(msg) do { \
+    std::string _s = std::string("[Polaris] ") + msg + "\n"; \
+    OutputDebugStringA(_s.c_str()); \
+    GetLog() << msg << std::endl; GetLog().flush(); \
+} while(0)
 #define DXLOG(msg) do { GetLog() << msg << std::endl; GetLog().flush(); } while(0)
 
 // ── Static member definitions ─────────────────────────────────────────────────
