@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polaris Client | Minecraft Bedrock Utility Client</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-deep:  #030311;
+            --bg-card:  rgba(255,255,255,0.04);
+            --border:   rgba(255,255,255,0.08);
+            --accent:   #818cf8;
+            --accent2:  #38bdf8;
+            --glow:     rgba(129,140,248,0.4);
+            --text:     #e2e8f0;
+            --muted:    #94a3b8;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ── STARFIELD ── */
+        #stars-canvas {
+            position: fixed; inset: 0;
+            z-index: 0; pointer-events: none;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 1.1rem 2.5rem;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background .3s, backdrop-filter .3s;
+        }
+        nav.scrolled {
+            background: rgba(3,3,17,.88);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-logo {
+            font-family: 'Cinzel', serif;
+            font-weight: 700; font-size: 1.1rem;
+            letter-spacing: 3px; color: var(--accent);
+            text-shadow: 0 0 24px var(--glow);
+            text-decoration: none;
+        }
+        .nav-logo span { color: var(--accent2); }
+
+        .nav-links { display: flex; gap: 2.2rem; list-style: none; }
+        .nav-links a {
+            color: var(--muted); text-decoration: none;
+            font-size: .88rem; font-weight: 500;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            transition: color .2s;
+        }
+        .nav-links a:hover { color: var(--accent); }
+
+        .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; }
+        .hamburger span { display: block; width: 24px; height: 2px; background: var(--muted); transition: .3s; }
+
+        /* ── HERO ── */
+        #home {
+            position: relative; min-height: 100vh;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            z-index: 1; padding: 2rem;
+        }
+        .hero-content { position: relative; z-index: 2; }
+
+        .hero-badge {
+            display: inline-block;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 50px; padding: .4rem 1.3rem;
+            font-size: .75rem; letter-spacing: 3.5px; text-transform: uppercase;
+            color: var(--accent2); margin-bottom: 1.6rem;
+        }
+
+        .hero-title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(3.5rem, 11vw, 8rem);
+            font-weight: 900; line-height: 1; letter-spacing: .06em;
+            background: linear-gradient(135deg, #c7d2fe 0%, #818cf8 50%, #38bdf8 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            filter: drop-shadow(0 0 50px rgba(129,140,248,.55));
+            margin-bottom: .3em;
+        }
+        .hero-sub {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(1rem, 3vw, 1.6rem);
+            letter-spacing: .35em; text-transform: uppercase;
+            color: var(--accent2); margin-bottom: 1.4rem;
+            opacity: .85;
+        }
+        .hero-desc {
+            font-size: 1.15rem; color: var(--muted); letter-spacing: .5px;
+            max-width: 560px; margin: 0 auto 2.5rem;
+            font-weight: 400; line-height: 1.7;
+        }
+
+        .hero-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .8rem 2rem; border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: .95rem; font-weight: 600; letter-spacing: 1.5px;
+            text-transform: uppercase; text-decoration: none;
+            cursor: pointer; border: none; transition: .2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #fff;
+            box-shadow: 0 0 24px rgba(129,140,248,.4);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(129,140,248,.6); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border); color: var(--muted);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── SECTIONS ── */
+        section { position: relative; z-index: 1; padding: 6rem 2rem; }
+        .section-inner { max-width: 1100px; margin: 0 auto; }
+
+        .section-label {
+            font-size: .75rem; letter-spacing: 4px; text-transform: uppercase;
+            color: var(--accent2); margin-bottom: .8rem;
+        }
+        .section-title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700; letter-spacing: .04em; margin-bottom: 1rem;
+        }
+        .section-desc {
+            color: var(--muted); font-size: 1.05rem; max-width: 560px;
+            line-height: 1.7; margin-bottom: 3.5rem;
+        }
+
+        /* ── FEATURE GRID ── */
+        .feature-grid {
+            display: grid; gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem 1.8rem;
+            transition: border-color .25s, transform .25s;
+        }
+        .feature-card:hover {
+            border-color: rgba(129,140,248,.35);
+            transform: translateY(-4px);
+        }
+        .feature-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: linear-gradient(135deg, rgba(129,140,248,.18), rgba(56,189,248,.12));
+            border: 1px solid rgba(129,140,248,.25);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; margin-bottom: 1.1rem;
+        }
+        .feature-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.05rem; letter-spacing: .05em;
+            color: var(--text); margin-bottom: .5rem;
+        }
+        .feature-desc { color: var(--muted); font-size: .92rem; line-height: 1.65; }
+
+        /* ── MODULE LIST ── */
+        .module-cols {
+            display: grid; gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+        .module-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.8rem;
+        }
+        .module-group-title {
+            font-family: 'Cinzel', serif;
+            font-size: .85rem; letter-spacing: 3px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 1.2rem;
+            padding-bottom: .7rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .module-item {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            font-size: .95rem; color: var(--text);
+        }
+        .module-item:last-child { border-bottom: none; }
+        .module-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--accent2); flex-shrink: 0;
+        }
+        .module-desc { color: var(--muted); font-size: .82rem; margin-left: auto; }
+
+        /* ── STEPS ── */
+        .steps { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .step {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.8rem; position: relative;
+        }
+        .step-num {
+            font-family: 'Cinzel', serif;
+            font-size: 3rem; font-weight: 900;
+            color: rgba(129,140,248,.12); position: absolute;
+            top: 1rem; right: 1.2rem; line-height: 1;
+        }
+        .step-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1rem; letter-spacing: .05em;
+            color: var(--text); margin-bottom: .5rem;
+        }
+        .step-desc { color: var(--muted); font-size: .92rem; line-height: 1.65; }
+        .step-tag {
+            display: inline-block; margin-top: .8rem;
+            background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.2);
+            border-radius: 4px; padding: .15rem .6rem;
+            font-size: .75rem; letter-spacing: 1px; color: var(--accent2);
+        }
+
+        /* ── DIVIDER ── */
+        .divider {
+            width: 100%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            position: relative; z-index: 1;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            position: relative; z-index: 1;
+            padding: 2.5rem 2rem;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 1rem;
+            max-width: 1100px; margin: 0 auto;
+        }
+        .footer-logo {
+            font-family: 'Cinzel', serif;
+            font-size: .9rem; letter-spacing: 3px;
+            color: var(--accent); opacity: .7;
+        }
+        .footer-links { display: flex; gap: 1.5rem; list-style: none; }
+        .footer-links a { color: var(--muted); text-decoration: none; font-size: .85rem; transition: color .2s; }
+        .footer-links a:hover { color: var(--accent); }
+
+        /* ── GLOW ORBS ── */
+        .orb {
+            position: fixed; border-radius: 50%;
+            filter: blur(100px); pointer-events: none; z-index: 0;
+        }
+        .orb-1 { width: 600px; height: 600px; background: rgba(129,140,248,.07); top: -200px; left: -200px; }
+        .orb-2 { width: 500px; height: 500px; background: rgba(56,189,248,.05); bottom: -150px; right: -150px; }
+
+        /* ── MOBILE ── */
+        @media (max-width: 640px) {
+            nav { padding: .9rem 1.2rem; }
+            .nav-links { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; right: 0; background: rgba(3,3,17,.95); backdrop-filter: blur(14px); padding: 1.5rem; gap: 1.2rem; border-bottom: 1px solid var(--border); }
+            .nav-links.open { display: flex; }
+            .hamburger { display: flex; }
+            section { padding: 4rem 1.2rem; }
+            footer { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="stars-canvas"></canvas>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- NAV -->
+<nav id="nav">
+    <a class="nav-logo" href="#home">POLARIS <span>CLIENT</span></a>
+    <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#download">Download</a></li>
+    </ul>
+    <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+        <span></span><span></span><span></span>
+    </div>
+</nav>
+
+<!-- HERO -->
+<section id="home">
+    <div class="hero-content">
+        <div class="hero-badge">Minecraft Bedrock &nbsp;&#8226;&nbsp; Utility Client</div>
+        <h1 class="hero-title">POLARIS</h1>
+        <p class="hero-sub">Client</p>
+        <p class="hero-desc">
+            A lightweight Bedrock utility client packed with HUD modules, visual enhancements,
+            and quality-of-life tools — all toggled through an in-game click GUI.
+        </p>
+        <div class="hero-btns">
+            <a class="btn btn-primary" href="#download">Download</a>
+            <a class="btn btn-outline" href="https://github.com/Reptile1234526/polaris-client" target="_blank">GitHub</a>
+        </div>
+    </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section id="features">
+    <div class="section-inner">
+        <p class="section-label">What's inside</p>
+        <h2 class="section-title">Built for Bedrock</h2>
+        <p class="section-desc">
+            Everything you need in one clean DLL — no bloat, no launchers you don't control.
+        </p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">&#9678;</div>
+                <h3 class="feature-title">HUD Overlays</h3>
+                <p class="feature-desc">CPS counter, coordinates, ping display, armor status, keystrokes, combo counter, and more — all rendered directly on-screen via DX12.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#10022;</div>
+                <h3 class="feature-title">Visual Modules</h3>
+                <p class="feature-desc">Fullbright, hitboxes, block outlines, low fire, no hurt cam, and zoom — see the game the way you want to.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#9881;</div>
+                <h3 class="feature-title">Utility Tools</h3>
+                <p class="feature-desc">Fast inventory, drop inventory, VSync disabler, better tooltips — small tweaks that make a big difference in gameplay.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#9881;</div>
+                <h3 class="feature-title">Click GUI</h3>
+                <p class="feature-desc">Toggle and configure every module in-game with a clean ImGui-based click GUI. Open with L, close with Escape.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#9658;</div>
+                <h3 class="feature-title">Per-Module Keybinds</h3>
+                <p class="feature-desc">Assign any key to any module and toggle features on the fly without ever opening the GUI.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#9670;</div>
+                <h3 class="feature-title">Clean Launcher</h3>
+                <p class="feature-desc">A dark-themed standalone launcher auto-detects Minecraft and injects with one click — no command line required.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MODULES -->
+<section id="modules">
+    <div class="section-inner">
+        <p class="section-label">Full module list</p>
+        <h2 class="section-title">Every Module</h2>
+        <p class="section-desc">All modules are togglable, configurable, and designed to be lightweight.</p>
+        <div class="module-cols">
+            <div class="module-group">
+                <div class="module-group-title">HUD</div>
+                <div class="module-item"><span class="module-dot"></span>ArmorHUD <span class="module-desc">Durability</span></div>
+                <div class="module-item"><span class="module-dot"></span>CPSCounter <span class="module-desc">Click rate</span></div>
+                <div class="module-item"><span class="module-dot"></span>Coords <span class="module-desc">XYZ display</span></div>
+                <div class="module-item"><span class="module-dot"></span>ComboCounter <span class="module-desc">Hit combos</span></div>
+                <div class="module-item"><span class="module-dot"></span>Crosshair <span class="module-desc">Custom crosshair</span></div>
+                <div class="module-item"><span class="module-dot"></span>Keystrokes <span class="module-desc">Key display</span></div>
+                <div class="module-item"><span class="module-dot"></span>PingDisplay <span class="module-desc">Latency</span></div>
+                <div class="module-item"><span class="module-dot"></span>ReachDisplay <span class="module-desc">Hit distance</span></div>
+                <div class="module-item"><span class="module-dot"></span>TabList <span class="module-desc">Player list</span></div>
+            </div>
+            <div class="module-group">
+                <div class="module-group-title">Visual</div>
+                <div class="module-item"><span class="module-dot"></span>BlockOutline <span class="module-desc">Block borders</span></div>
+                <div class="module-item"><span class="module-dot"></span>Fullbright <span class="module-desc">Max gamma</span></div>
+                <div class="module-item"><span class="module-dot"></span>Hitbox <span class="module-desc">Entity boxes</span></div>
+                <div class="module-item"><span class="module-dot"></span>LowFire <span class="module-desc">Smaller fire</span></div>
+                <div class="module-item"><span class="module-dot"></span>NoHurtCam <span class="module-desc">No camera shake</span></div>
+                <div class="module-item"><span class="module-dot"></span>Zoom <span class="module-desc">Scroll to zoom</span></div>
+            </div>
+            <div class="module-group">
+                <div class="module-group-title">Utility</div>
+                <div class="module-item"><span class="module-dot"></span>BetterTooltips <span class="module-desc">Item info</span></div>
+                <div class="module-item"><span class="module-dot"></span>DropInventory <span class="module-desc">Quick drop</span></div>
+                <div class="module-item"><span class="module-dot"></span>FastInventory <span class="module-desc">Instant move</span></div>
+                <div class="module-item"><span class="module-dot"></span>VSyncDisabler <span class="module-desc">Uncap FPS</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- DOWNLOAD -->
+<section id="download">
+    <div class="section-inner">
+        <p class="section-label">Get started</p>
+        <h2 class="section-title">Download & Inject</h2>
+        <p class="section-desc">Download the latest build from GitHub Actions, drop the files together, and inject with one click.</p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">01</div>
+                <h3 class="step-title">Download</h3>
+                <p class="step-desc">Go to the GitHub Actions page and download the latest <strong>PolarisClient</strong> artifact.</p>
+                <span class="step-tag">Windows x64</span>
+            </div>
+            <div class="step">
+                <div class="step-num">02</div>
+                <h3 class="step-title">Install Runtime</h3>
+                <p class="step-desc">Install the Visual C++ Redistributable 2015–2022 x64 if you haven't already.</p>
+                <span class="step-tag">One-time setup</span>
+            </div>
+            <div class="step">
+                <div class="step-num">03</div>
+                <h3 class="step-title">Open Minecraft</h3>
+                <p class="step-desc">Launch Minecraft for Windows from the Start Menu and wait until you're in the game.</p>
+                <span class="step-tag">Bedrock Edition</span>
+            </div>
+            <div class="step">
+                <div class="step-num">04</div>
+                <h3 class="step-title">Inject</h3>
+                <p class="step-desc">Run <code style="color:var(--accent2);background:rgba(56,189,248,.1);padding:1px 6px;border-radius:4px">PolarisLauncher.exe</code> as Administrator and click <strong>Inject into Minecraft</strong>. Press <strong>L</strong> in-game to open the GUI.</p>
+                <span class="step-tag">Run as Admin</span>
+            </div>
+        </div>
+        <div style="margin-top:3rem;display:flex;gap:1rem;flex-wrap:wrap;">
+            <a class="btn btn-primary" href="https://github.com/Reptile1234526/polaris-client/actions" target="_blank">Latest Build</a>
+            <a class="btn btn-outline" href="https://aka.ms/vs/17/release/vc_redist.x64.exe" target="_blank">VC++ Redistributable</a>
+        </div>
+    </div>
+</section>
+
+<div class="divider"></div>
+
+<footer>
+    <div class="footer-logo">POLARIS CLIENT</div>
+    <ul class="footer-links">
+        <li><a href="https://github.com/Reptile1234526/polaris-client" target="_blank">GitHub</a></li>
+        <li><a href="https://github.com/Reptile1234526/polaris-client/actions" target="_blank">Builds</a></li>
+        <li><a href="https://github.com/Reptile1234526/polaris-smp" target="_blank">Polaris SMP</a></li>
+    </ul>
+</footer>
+
+<script>
+// ── Starfield ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('stars-canvas');
+const ctx = canvas.getContext('2d');
+let stars = [];
+
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+function initStars() {
+    stars = Array.from({ length: 200 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2 + 0.2,
+        a: Math.random(),
+        da: (Math.random() - 0.5) * 0.005,
+        dx: (Math.random() - 0.5) * 0.03,
+        dy: (Math.random() - 0.5) * 0.03,
+    }));
+}
+function drawStars() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stars.forEach(s => {
+        s.x += s.dx; s.y += s.dy;
+        s.a = Math.max(0.05, Math.min(1, s.a + s.da));
+        if (s.x < 0) s.x = canvas.width;
+        if (s.x > canvas.width) s.x = 0;
+        if (s.y < 0) s.y = canvas.height;
+        if (s.y > canvas.height) s.y = 0;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(199,210,254,${s.a})`;
+        ctx.fill();
+    });
+    requestAnimationFrame(drawStars);
+}
+window.addEventListener('resize', () => { resize(); initStars(); });
+resize(); initStars(); drawStars();
+
+// ── Nav scroll ───────────────────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+    document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+});
+
+// ── Hamburger ────────────────────────────────────────────────────────────────
+function toggleMenu() {
+    document.getElementById('nav-links').classList.toggle('open');
+}
+</script>
+</body>
+</html>
