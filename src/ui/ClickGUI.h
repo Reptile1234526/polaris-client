@@ -67,9 +67,9 @@ public:
         ImGui::EndChild();
         ImGui::End();
 
-        // Close on Escape or Right Shift
+        // Close on Escape or L
         if (ImGui::IsKeyPressed(ImGuiKey_Escape) ||
-            ImGui::IsKeyPressed(ImGuiKey_RightShift))
+            ImGui::IsKeyPressed(ImGuiKey_L))
             toggle();
     }
 

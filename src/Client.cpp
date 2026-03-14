@@ -27,12 +27,12 @@ void Client::init() {
         if (ci && ci->isInGame())
             ModuleManager::get().onTick(ci);
 
-        // Right Shift toggles the ClickGUI
-        static bool rshiftWas = false;
-        bool rshiftNow = (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
-        if (rshiftNow && !rshiftWas)
+        // L key toggles the ClickGUI
+        static bool lkeyWas = false;
+        bool lkeyNow = (GetAsyncKeyState('L') & 0x8000) != 0;
+        if (lkeyNow && !lkeyWas)
             ClickGUI::get().toggle();
-        rshiftWas = rshiftNow;
+        lkeyWas = lkeyNow;
 
         // INSERT key unloads the client (eject)
         if (GetAsyncKeyState(VK_INSERT) & 0x8000) {

@@ -133,7 +133,15 @@ bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Hooked Present — main render loop entry
 // ─────────────────────────────────────────────────────────────────────────────
-HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chain, UINT sync, UINT flags) {
+HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chainRaw, UINT sync, UINT flags) {
+    // QueryInterface for IDXGISwapChain3 so GetCurrentBackBufferIndex is safe
+    IDXGISwapChain3* chain = nullptr;
+    chainRaw->QueryInterface(IID_PPV_ARGS(&chain));
+    if (!chain) return originalPresent(chainRaw, sync, flags);
+
+    HRESULT result = E_FAIL;
+    __try {
+
     if (!imguiReady && cmdQueue) {
         if (!initImGui(chain)) {
             goto done;
@@ -207,7 +215,17 @@ done:
     auto* vsync = ModuleManager::get().get<VSyncDisabler>();
     if (vsync) sync = vsync->overrideSyncInterval(sync);
 
-    return originalPresent(chain, sync, flags);
+    result = originalPresent(chainRaw, sync, flags);
+
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        // If our overlay code crashed, still call the original Present
+        // so the game keeps running instead of dying
+        imguiReady = false;
+        result = originalPresent(chainRaw, sync, flags);
+    }
+
+    chain->Release();
+    return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
