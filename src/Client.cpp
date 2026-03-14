@@ -5,19 +5,40 @@
 #include <Windows.h>
 #include <thread>
 #include <chrono>
+#include <fstream>
+
+// Simple log to %TEMP%\polaris.log
+static std::ofstream g_log;
+static void Log(const char* msg) {
+    if (!g_log.is_open()) {
+        char tmp[MAX_PATH];
+        GetTempPathA(MAX_PATH, tmp);
+        g_log.open(std::string(tmp) + "polaris.log", std::ios::out | std::ios::trunc);
+    }
+    g_log << msg << std::endl;
+    g_log.flush();
+}
 
 void Client::init() {
+    Log("Client::init started");
+
     // Wait for the game to finish loading before hooking
     while (!GetModuleHandleW(L"Minecraft.Windows.exe"))
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+    Log("Minecraft module found, waiting 3s...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
+    Log("Initialising ModuleManager...");
     ModuleManager::get().init();
 
+    Log("Initialising DXHook...");
     if (!DXHook::init()) {
-        MessageBoxA(nullptr, "Polaris: DXHook init failed.", "Error", MB_OK | MB_ICONERROR);
+        Log("DXHook init FAILED");
+        MessageBoxA(nullptr, "Polaris: DXHook init failed.\nCheck %TEMP%\\polaris.log", "Error", MB_OK | MB_ICONERROR);
         return;
     }
+    Log("DXHook init OK");
 
     running = true;
 

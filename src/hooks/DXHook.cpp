@@ -9,6 +9,17 @@
 #include <MinHook.h>
 #include <dxgi1_4.h>
 #include <stdexcept>
+#include <fstream>
+
+static std::ofstream& GetLog() {
+    static std::ofstream log;
+    if (!log.is_open()) {
+        char tmp[MAX_PATH]; GetTempPathA(MAX_PATH, tmp);
+        log.open(std::string(tmp) + "polaris.log", std::ios::app);
+    }
+    return log;
+}
+#define DXLOG(msg) do { GetLog() << msg << std::endl; GetLog().flush(); } while(0)
 
 // ── Static member definitions ─────────────────────────────────────────────────
 DXHook::PresentFn           DXHook::originalPresent         = nullptr;
@@ -38,20 +49,20 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM,
 // Initialise: hook ExecuteCommandLists (to capture cmdQueue) and Present
 // ─────────────────────────────────────────────────────────────────────────────
 bool DXHook::init() {
+    DXLOG("DXHook::init");
     MH_Initialize();
 
     void* scVT[20] = {};
     void* cqVT[20] = {};
-    if (!getDummySwapChainVTable(scVT, cqVT)) return false;
+    DXLOG("Getting dummy vtable...");
+    if (!getDummySwapChainVTable(scVT, cqVT)) { DXLOG("getDummySwapChainVTable FAILED"); return false; }
+    DXLOG("Got vtable OK");
 
-    // IDXGISwapChain::Present            = vtable index 8
-    // IDXGISwapChain::ResizeBuffers      = vtable index 13
-    // ID3D12CommandQueue::ExecuteCmdLists = vtable index 10
     MH_CreateHook(scVT[8],  (void*)hookedPresent,          (void**)&originalPresent);
     MH_CreateHook(scVT[13], (void*)hookedResizeBuffers,     (void**)&originalResizeBuffers);
     MH_CreateHook(cqVT[10], (void*)hookedExecuteCmdLists,  (void**)&originalExecuteCmdLists);
-
     MH_EnableHook(MH_ALL_HOOKS);
+    DXLOG("Hooks enabled");
     return true;
 }
 
@@ -254,17 +265,17 @@ HRESULT __stdcall DXHook::hookedResizeBuffers(IDXGISwapChain* chain, UINT count,
 // ImGui initialisation
 // ─────────────────────────────────────────────────────────────────────────────
 bool DXHook::initImGui(IDXGISwapChain3* chain) {
-    // Get device
+    DXLOG("initImGui started");
     chain->GetDevice(IID_PPV_ARGS(&device));
-    if (!device) return false;
+    if (!device) { DXLOG("GetDevice FAILED"); return false; }
+    DXLOG("Got device");
 
-    // Get window
     DXGI_SWAP_CHAIN_DESC sd;
     chain->GetDesc(&sd);
-    gameWindow = sd.OutputWindow;
-
-    // Back-buffer count
+    gameWindow  = sd.OutputWindow;
     bufferCount = sd.BufferCount;
+    DXLOG(std::string("bufferCount=") + std::to_string(bufferCount));
+    if (bufferCount == 0 || bufferCount > 8) { DXLOG("Bad bufferCount"); return false; }
 
     // Create SRV descriptor heap (for ImGui font)
     D3D12_DESCRIPTOR_HEAP_DESC srvDesc = {};
