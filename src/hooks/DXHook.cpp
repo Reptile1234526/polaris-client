@@ -13,10 +13,8 @@
 
 static std::ofstream& GetLog() {
     static std::ofstream log;
-    if (!log.is_open()) {
-        char tmp[MAX_PATH]; GetTempPathA(MAX_PATH, tmp);
-        log.open(std::string(tmp) + "polaris.log", std::ios::app);
-    }
+    if (!log.is_open())
+        log.open("C:\\polaris.log", std::ios::app);
     return log;
 }
 #define DXLOG(msg) do { GetLog() << msg << std::endl; GetLog().flush(); } while(0)

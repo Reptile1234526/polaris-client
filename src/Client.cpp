@@ -10,11 +10,8 @@
 // Simple log to %TEMP%\polaris.log
 static std::ofstream g_log;
 static void Log(const char* msg) {
-    if (!g_log.is_open()) {
-        char tmp[MAX_PATH];
-        GetTempPathA(MAX_PATH, tmp);
-        g_log.open(std::string(tmp) + "polaris.log", std::ios::out | std::ios::trunc);
-    }
+    if (!g_log.is_open())
+        g_log.open("C:\\polaris.log", std::ios::out | std::ios::trunc);
     g_log << msg << std::endl;
     g_log.flush();
 }
