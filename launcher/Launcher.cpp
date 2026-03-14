@@ -79,26 +79,52 @@ static DWORD FindPID(const wchar_t* name) {
     return pid;
 }
 
-static bool Inject(DWORD pid, const std::wstring& dll) {
+static bool Inject(DWORD pid, const std::wstring& dll, std::wstring& outError) {
     char dllA[MAX_PATH];
     WideCharToMultiByte(CP_ACP, 0, dll.c_str(), -1, dllA, MAX_PATH, nullptr, nullptr);
 
     HANDLE proc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-    if (!proc) return false;
+    if (!proc) {
+        outError = L"OpenProcess failed (error " + std::to_wstring(GetLastError()) + L") — run as Administrator";
+        return false;
+    }
+
+    // Check architecture matches
+    BOOL procWow64 = FALSE, selfWow64 = FALSE;
+    IsWow64Process(proc, &procWow64);
+    IsWow64Process(GetCurrentProcess(), &selfWow64);
+    if (procWow64 != selfWow64) {
+        outError = L"Architecture mismatch — game and launcher must both be x64";
+        CloseHandle(proc); return false;
+    }
 
     size_t len  = strlen(dllA) + 1;
     LPVOID rem  = VirtualAllocEx(proc, nullptr, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!rem) { CloseHandle(proc); return false; }
+    if (!rem) { outError = L"VirtualAllocEx failed"; CloseHandle(proc); return false; }
 
     WriteProcessMemory(proc, rem, dllA, len, nullptr);
     HANDLE th = CreateRemoteThread(proc, nullptr, 0,
         (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA"),
         rem, 0, nullptr);
-    if (!th) { VirtualFreeEx(proc, rem, 0, MEM_RELEASE); CloseHandle(proc); return false; }
+    if (!th) {
+        outError = L"CreateRemoteThread failed (error " + std::to_wstring(GetLastError()) + L")";
+        VirtualFreeEx(proc, rem, 0, MEM_RELEASE); CloseHandle(proc); return false;
+    }
+
     WaitForSingleObject(th, 8000);
+
+    // Check LoadLibraryA return value — non-zero means success
+    DWORD exitCode = 0;
+    GetExitCodeThread(th, &exitCode);
+
     VirtualFreeEx(proc, rem, 0, MEM_RELEASE);
     CloseHandle(th);
     CloseHandle(proc);
+
+    if (exitCode == 0) {
+        outError = L"LoadLibrary returned NULL — DLL failed to load (missing dependency or wrong architecture)";
+        return false;
+    }
     return true;
 }
 
@@ -143,10 +169,11 @@ static void DoLaunch() {
         return;
     }
 
-    if (Inject(pid, dll))
-        SetStatus(L"Injected! Press RIGHT SHIFT in-game to open the GUI", kGreen);
+    std::wstring injectErr;
+    if (Inject(pid, dll, injectErr))
+        SetStatus(L"Injected! Press L in-game to open the GUI", kGreen);
     else
-        SetStatus(L"Injection failed — try running as Administrator", kRed);
+        SetStatus(injectErr, kRed);
 
     g_busy = false;
 }
