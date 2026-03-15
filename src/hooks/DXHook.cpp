@@ -196,8 +196,11 @@ static void DoRenderFrame(IDXGISwapChain3* chain) {
     DXHook::cmdList->SetDescriptorHeaps(1, &DXHook::srvHeap);
     DXLOG("RT set");
 
+    DXLOG("DX12 NewFrame...");
     ImGui_ImplDX12_NewFrame();
+    DXLOG("Win32 NewFrame...");
     ImGui_ImplWin32_NewFrame();
+    DXLOG("ImGui NewFrame...");
     ImGui::NewFrame();
     DXLOG("ImGui new frame");
 
@@ -280,7 +283,9 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     chain->GetDesc(&sd);
     gameWindow  = sd.OutputWindow;
     bufferCount = sd.BufferCount;
-    DXLOG(std::string("bufferCount=") + std::to_string(bufferCount));
+    DXGI_FORMAT rtvFormat = sd.BufferDesc.Format;
+    DXLOG(std::string("bufferCount=") + std::to_string(bufferCount)
+        + " fmt=" + std::to_string((int)rtvFormat));
     if (bufferCount == 0 || bufferCount > 8) { DXLOG("Bad bufferCount"); return false; }
 
     // Guard: tear down any previous state before reinitialising
@@ -367,7 +372,7 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     ImGui_ImplWin32_Init(gameWindow);
     DXLOG("ImGui_ImplDX12_Init...");
     ImGui_ImplDX12_Init(device, (int)bufferCount,
-                        DXGI_FORMAT_R8G8B8A8_UNORM, srvHeap,
+                        rtvFormat, srvHeap,
                         srvHeap->GetCPUDescriptorHandleForHeapStart(),
                         srvHeap->GetGPUDescriptorHandleForHeapStart());
 
