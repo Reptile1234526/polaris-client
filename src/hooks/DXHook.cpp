@@ -238,7 +238,10 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chainRaw, UINT sync, UI
         if (vsync) sync = vsync->overrideSyncInterval(sync);
         result = originalPresent(chainRaw, sync, flags);
     } __except (EXCEPTION_EXECUTE_HANDLER) {
-        OutputDebugStringA("[Polaris] EXCEPTION in hookedPresent — disabling overlay\n");
+        char _exbuf[64];
+        sprintf_s(_exbuf, "EXCEPTION 0x%08X in hookedPresent — disabling overlay", GetExceptionCode());
+        OutputDebugStringA(_exbuf);
+        GetLog() << _exbuf << std::endl; GetLog().flush();
         s_initFailed = true;
         imguiReady   = false;
         result = originalPresent(chainRaw, sync, flags);
@@ -257,8 +260,10 @@ void __stdcall DXHook::hookedExecuteCmdLists(ID3D12CommandQueue* queue, UINT cou
         // Only capture a direct (graphics) queue — compute/copy queues cannot
         // execute graphics command lists and would cause a device removal crash.
         D3D12_COMMAND_QUEUE_DESC desc = queue->GetDesc();
-        if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+        if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
             cmdQueue = queue;
+            DXLOG("cmdQueue captured (DIRECT)");
+        }
     }
     originalExecuteCmdLists(queue, count, lists);
 }
@@ -268,11 +273,14 @@ void __stdcall DXHook::hookedExecuteCmdLists(ID3D12CommandQueue* queue, UINT cou
 // ─────────────────────────────────────────────────────────────────────────────
 HRESULT __stdcall DXHook::hookedResizeBuffers(IDXGISwapChain* chain, UINT count,
                                                UINT w, UINT h, DXGI_FORMAT fmt, UINT flags) {
+    DXLOG(std::string("ResizeBuffers ") + std::to_string(w) + "x" + std::to_string(h)
+        + " fmt=" + std::to_string((int)fmt) + " count=" + std::to_string(count));
     cleanupRenderTargets();
     HRESULT hr = originalResizeBuffers(chain, count, w, h, fmt, flags);
     IDXGISwapChain3* chain3 = nullptr;
     chain->QueryInterface(IID_PPV_ARGS(&chain3));
     if (chain3) { createRenderTargets(chain3); chain3->Release(); }
+    DXLOG(std::string("ResizeBuffers done hr=") + std::to_string((int)hr));
     return hr;
 }
 
