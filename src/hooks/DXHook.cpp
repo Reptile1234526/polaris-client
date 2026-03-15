@@ -253,7 +253,13 @@ HRESULT __stdcall DXHook::hookedPresent(IDXGISwapChain3* chainRaw, UINT sync, UI
 // ─────────────────────────────────────────────────────────────────────────────
 void __stdcall DXHook::hookedExecuteCmdLists(ID3D12CommandQueue* queue, UINT count,
                                               ID3D12CommandList* const* lists) {
-    if (!cmdQueue) cmdQueue = queue;
+    if (!cmdQueue) {
+        // Only capture a direct (graphics) queue — compute/copy queues cannot
+        // execute graphics command lists and would cause a device removal crash.
+        D3D12_COMMAND_QUEUE_DESC desc = queue->GetDesc();
+        if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT)
+            cmdQueue = queue;
+    }
     originalExecuteCmdLists(queue, count, lists);
 }
 
@@ -277,7 +283,7 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     DXLOG("initImGui started");
     chain->GetDevice(IID_PPV_ARGS(&device));
     if (!device) { DXLOG("GetDevice FAILED"); return false; }
-    DXLOG("Got device");
+    DXLOG(std::string("Got device, cmdQueue=") + (cmdQueue ? "OK" : "NULL"));
 
     DXGI_SWAP_CHAIN_DESC sd;
     chain->GetDesc(&sd);
