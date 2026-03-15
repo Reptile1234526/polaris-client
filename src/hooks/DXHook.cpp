@@ -146,11 +146,15 @@ bool DXHook::getDummySwapChainVTable(void** scVtable, void** cqVtable) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Hooked Present — main render loop entry
 // ── Render logic extracted so __try can be in a function with no C++ objects ──
-static bool s_initFailed = false;
+static bool s_initFailed     = false;
+static bool s_initInProgress = false;
 
 static void DoRenderFrame(IDXGISwapChain3* chain) {
-    if (!DXHook::imguiReady && !s_initFailed && DXHook::cmdQueue) {
-        if (!DXHook::initImGui(chain)) {
+    if (!DXHook::imguiReady && !s_initFailed && !s_initInProgress && DXHook::cmdQueue) {
+        s_initInProgress = true;
+        bool ok = DXHook::initImGui(chain);
+        s_initInProgress = false;
+        if (!ok) {
             s_initFailed = true;
             DXLOG("initImGui returned false — will not retry");
             return;
@@ -279,7 +283,17 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     DXLOG(std::string("bufferCount=") + std::to_string(bufferCount));
     if (bufferCount == 0 || bufferCount > 8) { DXLOG("Bad bufferCount"); return false; }
 
-    // Guard: if called multiple times before success, clean up first
+    // Guard: tear down any previous state before reinitialising
+    if (ImGui::GetCurrentContext()) {
+        ImGui_ImplDX12_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+    }
+    if (originalWndProc && gameWindow) {
+        SetWindowLongPtrW(gameWindow, GWLP_WNDPROC, (LONG_PTR)originalWndProc);
+        originalWndProc = nullptr;
+    }
+    imguiReady = false;
     cleanupRenderTargets();
     if (srvHeap)  { srvHeap->Release();  srvHeap  = nullptr; }
     if (rtvHeap)  { rtvHeap->Release();  rtvHeap  = nullptr; }
@@ -327,6 +341,12 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
 
     DXLOG("Creating render targets...");
     createRenderTargets(chain);
+    for (UINT i = 0; i < bufferCount; i++) {
+        if (!renderTargets[i]) {
+            DXLOG(std::string("RT[") + std::to_string(i) + "] is NULL — createRenderTargets failed");
+            return false;
+        }
+    }
 
     DXLOG("Init ImGui context...");
     ImGui::CreateContext();
