@@ -15,8 +15,8 @@ jobs:
 
       - name: Clone vendor dependencies
         run: |
-          git clone https://github.com/ocornut/imgui vendor/imgui
-          git clone https://github.com/TsudaKageyu/minhook vendor/minhook
+          git clone --branch v1.90.4 --depth 1 https://github.com/ocornut/imgui vendor/imgui
+          git clone --depth 1 https://github.com/TsudaKageyu/minhook vendor/minhook
 
       - name: Configure CMake
         run: cmake -B build -A x64 -DCMAKE_BUILD_TYPE=Release

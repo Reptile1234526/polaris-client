@@ -357,6 +357,7 @@ bool DXHook::initImGui(IDXGISwapChain3* chain) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
+    io.Fonts->AddFontDefault(); // ensure font atlas is non-empty before NewFrame
 
     ImGui::StyleColorsDark();
     ImGuiStyle& s = ImGui::GetStyle();
