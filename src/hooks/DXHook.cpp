@@ -168,18 +168,14 @@ static void DoRenderFrame(IDXGISwapChain3* chain) {
         bbIdx >= DXHook::renderTargets.size() ||
         !DXHook::renderTargets[bbIdx]) return;
 
-    DXLOG(std::string("Render frame bbIdx=") + std::to_string(bbIdx));
-
     if (DXHook::fence && DXHook::fenceEvent && DXHook::fenceValues[bbIdx] &&
         DXHook::fence->GetCompletedValue() < DXHook::fenceValues[bbIdx]) {
         DXHook::fence->SetEventOnCompletion(DXHook::fenceValues[bbIdx], DXHook::fenceEvent);
         WaitForSingleObject(DXHook::fenceEvent, INFINITE);
     }
-    DXLOG("fence wait done");
 
     DXHook::cmdAllocs[bbIdx]->Reset();
     DXHook::cmdList->Reset(DXHook::cmdAllocs[bbIdx], nullptr);
-    DXLOG("cmd reset done");
 
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -188,21 +184,15 @@ static void DoRenderFrame(IDXGISwapChain3* chain) {
     barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     DXHook::cmdList->ResourceBarrier(1, &barrier);
-    DXLOG("barrier PRESENT->RT done");
 
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = DXHook::rtvHeap->GetCPUDescriptorHandleForHeapStart();
     rtv.ptr += (UINT64)bbIdx * DXHook::rtvDescSize;
     DXHook::cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
     DXHook::cmdList->SetDescriptorHeaps(1, &DXHook::srvHeap);
-    DXLOG("RT set");
 
-    DXLOG("DX12 NewFrame...");
     ImGui_ImplDX12_NewFrame();
-    DXLOG("Win32 NewFrame...");
     ImGui_ImplWin32_NewFrame();
-    DXLOG("ImGui NewFrame...");
     ImGui::NewFrame();
-    DXLOG("ImGui new frame");
 
     ClickGUI::get().render();
     RECT rc; GetClientRect(DXHook::gameWindow, &rc);
@@ -210,7 +200,6 @@ static void DoRenderFrame(IDXGISwapChain3* chain) {
 
     ImGui::Render();
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), DXHook::cmdList);
-    DXLOG("ImGui render done");
 
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_PRESENT;
@@ -221,7 +210,6 @@ static void DoRenderFrame(IDXGISwapChain3* chain) {
     DXHook::cmdQueue->ExecuteCommandLists(1, lists);
     DXHook::fenceValues[bbIdx] = ++DXHook::fenceCounter;
     DXHook::cmdQueue->Signal(DXHook::fence, DXHook::fenceValues[bbIdx]);
-    DXLOG("frame submitted");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
