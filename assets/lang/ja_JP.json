@@ -1,7 +1,7 @@
 {
   "name": "日本語 (日本)",
   "translations": {
-    "client.intro.welcome": "Latiteクライアントへようこそ!",
+    "client.intro.welcome": "Polarisクライアントへようこそ!",
     "client.intro.menubutton": "ワールドまたはサーバーで {} を押してmodメニューを開きます。",
     "client.settings.menuKey.name": "メニューキー",
     "client.settings.ejectKey.name": "エジェクトキー",
@@ -34,7 +34,7 @@
     "client.settings.centerCursor.desc": "メニューを開くとクロスヘアーが中央に表示されます。",
     "client.settings.snapLines.desc": "スナップラインはモジュールの配置に役立ちます",
     "client.settings.detectLanguage.name": "言語を検出",
-    "client.settings.detectLanguage.desc": "システム言語に基づいてLatiteクライアントの言語を自動で切り替えます。",
+    "client.settings.detectLanguage.desc": "システム言語に基づいてPolarisクライアントの言語を自動で切り替えます。",
     "client.settings.mcRendererFont.default.name": "デフォルト",
     "client.settings.mcRendererFont.notoSans.name": "Noto Sans",
     "client.settings.mcRendererFont.default.desc": "デフォルトのUIフォント (デフォルトではMojangles)",
@@ -431,7 +431,7 @@
     "client.module.autoGG.customMessage.desc": "送信するカスタムメッセージ",
     "client.commands.help.desc": "すべてのコマンドと説明を表示します。",
     "client.commands.eject.ejectMsg.name": "クライアントをアンロードしました。",
-    "client.commands.eject.desc": "Latiteをゲームから外します。",
+    "client.commands.eject.desc": "Polarisをゲームから外します。",
     "client.commands.setPrefix.success.name": "コマンドプレフィックスは &7'{}'&r に設定されています",
     "client.commands.setPrefix.desc": "コマンドプレフィックスを設定します",
     "client.commands.toggle.msg.unknownModule.name": "不明なモジュール {}",

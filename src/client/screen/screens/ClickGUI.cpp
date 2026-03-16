@@ -436,16 +436,25 @@ void ClickGUI::onRender(Event&) {
 				rr.radiusY = searchRound;
 				rr.rect = renderTabRect.get();
 				auto solidBrush = rend.getSolidBrush();
-				if (this->modTab == std::get<1>(pair)) {
-					solidBrush->SetColor((std::get<2>(pair) - 0.1f).get());
+				bool isActiveTab = (this->modTab == std::get<1>(pair));
+				if (isActiveTab) {
+					solidBrush->SetColor(accentColor.asAlpha(0.22f).get()); // indigo tint
 				}
 				else {
 					solidBrush->SetColor(std::get<2>(pair).get());
 				}
 				dc.ctx->FillRoundedRectangle(rr, rend.getSolidBrush());
+				// Active tab: indigo bottom underline
+				if (isActiveTab) {
+					RectF underline = { renderTabRect.left + 4.f, renderTabRect.bottom - 2.f,
+					                    renderTabRect.right - 4.f, renderTabRect.bottom };
+					dc.fillRoundedRectangle(underline, accentColor.asAlpha(0.9f), 1.f);
+				}
 
-				float baseColor = 1.f - (0.1f * std::get<3>(pair));
-				dc.drawText(renderTabRect, std::get<0>(pair), { baseColor, baseColor, baseColor, 0.8f }, FontSelection::PrimaryRegular, nodeRect.getHeight() / 2.f, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+				d2d::Color tabTxtCol = isActiveTab
+					? accentColor
+					: d2d::Color::RGB(0x94, 0xA3, 0xB8).asAlpha(0.9f); // muted
+				dc.drawText(renderTabRect, std::get<0>(pair), tabTxtCol, FontSelection::PrimaryRegular, nodeRect.getHeight() / 2.f, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
 				dc.ctx->SetTarget(myBitmap);
 
 				auto oWidth = nodeRect.getWidth() + gaps;
@@ -657,7 +666,21 @@ void ClickGUI::onRender(Event&) {
 
 
 				dc.fillRoundedRectangle(modRectActual, d2d::Color::RGB(0xFF, 0xFF, 0xFF).asAlpha(0.05f), .22f * modHeight);
-				dc.drawRoundedRectangle(modRectActual, accentColor.asAlpha(1.f * mod.lerpToggle), .22f * modHeight, 1.f, DrawUtil::OutlinePosition::Inside);;
+				// Always-visible card border (rgba(255,255,255,0.08)) + accent when enabled
+				dc.drawRoundedRectangle(modRectActual, d2d::Color::RGB(0xFF, 0xFF, 0xFF).asAlpha(0.08f), .22f * modHeight, 1.f, DrawUtil::OutlinePosition::Inside);
+				dc.drawRoundedRectangle(modRectActual, accentColor.asAlpha(1.f * mod.lerpToggle), .22f * modHeight, 1.5f, DrawUtil::OutlinePosition::Inside);
+
+				// Cyan dot indicator — left edge (matches website #38bdf8)
+				{
+					d2d::Color dotCol = d2d::Color::RGB(0x38, 0xBD, 0xF8).asAlpha(mod.mod ? (mod.mod->isEnabled() ? 1.f : 0.35f) : 0.35f);
+					float dotCX = modRectActual.left + modHeight * 0.38f;
+					float dotCY = (modRectActual.top + modRectActual.bottom) * 0.5f;
+					float dotR  = modHeight * 0.11f;
+					D2D1_ELLIPSE el{ {dotCX, dotCY}, dotR, dotR };
+					auto brush = Latite::getRenderer().getSolidBrush();
+					brush->SetColor(dotCol.get());
+					dc.ctx->FillEllipse(el, brush);
+				}
 				if (renderExtended) {
 
 					dc.ctx->DrawBitmap(auxiliaryBitmap.Get());
