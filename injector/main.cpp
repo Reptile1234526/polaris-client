@@ -327,10 +327,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
     wc.style         = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc   = WndProc;
     wc.hInstance     = hInst;
-    wc.hCursor       = LoadCursorW(NULL, IDC_ARROW);
+    wc.hCursor       = LoadCursorW(NULL, (LPCWSTR)IDC_ARROW);
     wc.hbrBackground = hBrBg;
     wc.lpszClassName = L"PolarisInjector";
-    wc.hIcon         = LoadIconW(NULL, IDI_APPLICATION);
+    wc.hIcon         = LoadIconW(NULL, (LPCWSTR)IDI_APPLICATION);
     RegisterClassExW(&wc);
 
     // Fixed-size window (420 × 210)
