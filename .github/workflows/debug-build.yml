@@ -66,6 +66,12 @@ jobs:
             Rename-Item -Path $pdb -NewName "PolarisDebug.pdb" -Force
           }
 
+          # Copy injector to build dir for upload
+          $inj = "${{ github.workspace }}\${{ env.BUILD_DIR }}\injector\PolarisInjector.exe"
+          if (Test-Path $inj) {
+            Copy-Item $inj "${{ github.workspace }}\${{ env.BUILD_DIR }}\PolarisInjector.exe"
+          }
+
       - name: Compute build timestamp
         shell: bash
         run: |
@@ -90,6 +96,7 @@ jobs:
           files: |
             ${{ github.workspace }}/cmake-build-debug/PolarisDebug.dll
             ${{ github.workspace }}/cmake-build-debug/PolarisDebug.pdb
+            ${{ github.workspace }}/cmake-build-debug/PolarisInjector.exe
 
       - name: Recreate debug release to refresh date
         shell: bash
@@ -117,3 +124,4 @@ jobs:
           files: |
             ${{ github.workspace }}/cmake-build-debug/PolarisDebug.dll
             ${{ github.workspace }}/cmake-build-debug/PolarisDebug.pdb
+            ${{ github.workspace }}/cmake-build-debug/PolarisInjector.exe
