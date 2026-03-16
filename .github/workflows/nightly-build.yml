@@ -1,0 +1,110 @@
+name: Polaris Nightly
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "**CMakeLists.txt"
+      - "**.cmake"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "**.cpp"
+      - "**.h"
+      - "**.hpp"
+      - "**CMakeLists.txt"
+      - "**.cmake"
+  workflow_dispatch:
+
+env:
+  BUILD_CONFIGURATION: Nightly
+  BUILD_DIR: cmake-build-nightly
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
+
+      - name: Configure CMake (clang-cl + Ninja)
+        run: |
+          $env:CC = "clang-cl"
+          $env:CXX = "clang-cl"
+          cmake -B ${{ env.BUILD_DIR }} -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_CONFIGURATION }} -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+
+      - name: Build with Ninja
+        run: |
+          cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_CONFIGURATION }}
+
+      - name: Rename DLL
+        shell: pwsh
+        run: |
+          $dll = "${{ github.workspace }}\${{ env.BUILD_DIR }}\Polaris.dll"
+
+          if (Test-Path $dll) {
+            Rename-Item -Path $dll -NewName "PolarisNightly.dll" -Force
+          } else {
+            Write-Error "Polaris.dll not found"
+            exit 1
+          }
+
+      - name: Compute build timestamp
+        shell: bash
+        run: |
+          TS=$(date -u +"%Y%m%d-%H%M%S")
+          echo "TIMESTAMP=$TS" >> "$GITHUB_ENV"
+
+      - name: Create timestamped archival release
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          tag_name: nightly-${{ env.TIMESTAMP }}
+          name: Polaris Nightly ${{ env.TIMESTAMP }}
+          body: |
+            ### Automated experimental DLL build of Polaris.
+
+            Built at: ${{ env.TIMESTAMP }} UTC
+
+            Includes:
+            - PolarisNightly.dll
+          prerelease: true
+          generate_release_notes: false
+          files: |
+            ${{ github.workspace }}/cmake-build-nightly/PolarisNightly.dll
+
+      - name: Recreate nightly release to refresh date
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly -y || true
+          git push origin :refs/tags/nightly || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.3.2
+        with:
+          tag_name: nightly
+          name: Polaris Nightly
+          body: |
+            ### Latest Automated Nightly Build
+
+            **This release may contain bugs or crashes.**
+
+            Includes:
+            - PolarisNightly.dll
+          prerelease: true
+          make_latest: true
+          files: |
+            ${{ github.workspace }}/cmake-build-nightly/PolarisNightly.dll
